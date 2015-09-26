@@ -21,6 +21,7 @@
 ;; along with Shared buffer.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Code:
+
 (require 'cl)
 
 (defstruct sb-package
@@ -39,7 +40,8 @@ same shared buffer. The cursor is just an overlay object, and the color is
 (defstruct sb-message
   "Each message received is prefixed with a length. The message will not be
 evaluated before all bytes are received."
-  (bytes-left 0) (message ""))
+  (bytes-left 0)
+  (message ""))
 
 (defcustom sb-port 3705
   "Shared-buffer uses port 3705 by default."
@@ -88,6 +90,8 @@ shared-buffer client."
   (make-local-variable 'sb-new-client)
   (make-local-variable 'sb-point-max)
   (make-local-variable 'sb-point)
+  (make-local-variable 'sb-msg)
+  (setq sb-msg (make-sb-message))
   (setq sb-key (read-from-minibuffer "key: "))
   (setq sb-server
         (make-network-process
@@ -299,15 +303,15 @@ messages are prefixed with the length of the message (or the number of
   bytes). The message is stored in the sb-message struct, and the part of
   the string that has still not been stored is returned."
   (let ((msg-start (string-match "[^[:digit:] ]" message)))
-    (setf (sb-message-bytes-left sb-msg) (read message))
+    (setf (sb-message-bytes-left sb-msg) (length message))
     (let* ((message-len (length message))
-           (msg-part-len (+ msg-start (sb-message-bytes-left sb-msg)))
+           (msg-part-len (+ msg-start message-len))
            (msg-end (if (< msg-part-len message-len)
-                        msg-part-len message-len)))
-      (setf (sb-message-message sb-msg)
-            (substring message msg-start msg-end)
-            (sb-message-bytes-left sb-msg)
-            (- (sb-message-bytes-left sb-msg) (- msg-end msg-start)))
+                        msg-part-len
+		      message-len)))
+      (setf (sb-message-message sb-msg) (substring message msg-start msg-end)
+            (sb-message-bytes-left sb-msg) (- (sb-message-bytes-left sb-msg)
+					      (- msg-end msg-start)))
       (substring message msg-end))))
 
 (defun sb-receive-message-part (message)
